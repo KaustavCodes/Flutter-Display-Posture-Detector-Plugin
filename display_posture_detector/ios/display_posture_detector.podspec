@@ -5,13 +5,13 @@
 Pod::Spec.new do |s|
   s.name             = 'display_posture_detector'
   s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.summary          = 'Flutter plugin for detecting display posture, hinge bounds, and multi-display regions.'
   s.description      = <<-DESC
-A new Flutter plugin project.
+A Flutter plugin to detect display postures, hardware hinge bounds, orientation, screen metrics, and multi-display regions on foldables and tablets.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://kauscoder.com'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'Kaustav Halder' => 'contact@kauscoder.com' }
   s.source           = { :path => '.' }
   s.source_files = 'display_posture_detector/Sources/display_posture_detector/**/*'
   s.dependency 'Flutter'
