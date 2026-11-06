@@ -33,6 +33,8 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
     private weak var observerView: PostureObserverView?
     private var lastEmittedState: PostureState?
     private var emitScheduled = false
+    private var hingeInteraction: Any?
+    private var latestHingeStatusRaw: Int?
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let methodChannel = FlutterMethodChannel(
@@ -83,6 +85,13 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
     }
 
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        #if compiler(>=6.0)
+        if #available(iOS 27.1, *), let interaction = hingeInteraction as? UIInteraction {
+            getTargetView()?.removeInteraction(interaction)
+        }
+        #endif
+        latestHingeStatusRaw = nil
+        hingeInteraction = nil
         observerView?.removeFromSuperview()
         observerView = nil
         eventSink = nil
@@ -104,6 +113,20 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
 
         rootView.addSubview(obs)
         self.observerView = obs
+
+        #if compiler(>=6.0)
+        if #available(iOS 27.1, *) {
+            if hingeInteraction == nil {
+                let interaction = UIHingeInteraction { [weak self] _, update in
+                    guard let self = self else { return }
+                    self.latestHingeStatusRaw = update.hinge?.status.rawValue
+                    self.scheduleEmit()
+                }
+                rootView.addInteraction(interaction)
+                self.hingeInteraction = interaction
+            }
+        }
+        #endif
     }
 
     private func scheduleEmit() {
@@ -137,20 +160,32 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
 
         #if compiler(>=6.0)
         if #available(iOS 27.1, *) {
-            let activeDivisions = targetView.reservedRegions(kind: .division)
-            if let activeFold = activeDivisions.first, activeFold.isActive {
-                foldState = "HALF_OPENED"
-                isSeparating = true
-                hingeRect = activeFold.frame
-            } else {
-                let allDivisions = targetView.reservedRegions(kind: .division, options: [.includeInactive])
-                if let inactiveFold = allDivisions.first {
+            if let raw = latestHingeStatusRaw, let status = UIHinge.Status(rawValue: raw) {
+                switch status {
+                case .partiallyOpen:
+                    foldState = "HALF_OPENED"
+                    isSeparating = true
+                case .fullyOpen:
                     foldState = "FLAT"
                     isSeparating = false
-                    hingeRect = inactiveFold.frame
-                } else if targetView.traitCollection.horizontalSizeClass == .regular {
-                    foldState = "FLAT"
+                case .closed:
+                    foldState = "NORMAL"
+                    isSeparating = false
+                default:
+                    break
                 }
+            }
+
+            let activeDivisions = targetView.reservedRegions(kind: .division)
+            let allDivisions = targetView.reservedRegions(kind: .division, options: [.includeInactive])
+            if let fold = activeDivisions.first ?? allDivisions.first {
+                hingeRect = fold.frame
+                if foldState == "NORMAL" {
+                    foldState = fold.isActive ? "HALF_OPENED" : "FLAT"
+                    isSeparating = fold.isActive
+                }
+            } else if targetView.traitCollection.horizontalSizeClass == .regular && foldState == "NORMAL" {
+                foldState = "FLAT"
             }
         }
         #endif

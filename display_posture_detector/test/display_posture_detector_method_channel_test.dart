@@ -7,23 +7,22 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final platform = MethodChannelDisplayPostureDetector();
-  const methodChannel =
-      MethodChannel('com.kauscoder.display_posture/methods');
+  const methodChannel = MethodChannel('com.kauscoder.display_posture/methods');
 
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(methodChannel, (MethodCall methodCall) async {
-      if (methodCall.method == 'getMetrics') {
-        return <String, dynamic>{
-          'widthPx': 1800,
-          'heightPx': 2700,
-          'density': 2.5,
-          'orientation': 'PORTRAIT',
-          'deviceType': 'IPHONE',
-        };
-      }
-      return null;
-    });
+          if (methodCall.method == 'getMetrics') {
+            return <String, dynamic>{
+              'widthPx': 1800,
+              'heightPx': 2700,
+              'density': 2.5,
+              'orientation': 'PORTRAIT',
+              'deviceType': 'IPHONE',
+            };
+          }
+          return null;
+        });
   });
 
   tearDown(() {
@@ -54,8 +53,18 @@ void main() {
         'height': 669.0,
       },
       'displayAreas': <dynamic>[
-        <String, dynamic>{'left': 0.0, 'top': 0.0, 'width': 456.0, 'height': 669.0},
-        <String, dynamic>{'left': 496.0, 'top': 0.0, 'width': 455.0, 'height': 669.0},
+        <String, dynamic>{
+          'left': 0.0,
+          'top': 0.0,
+          'width': 456.0,
+          'height': 669.0,
+        },
+        <String, dynamic>{
+          'left': 496.0,
+          'top': 0.0,
+          'width': 455.0,
+          'height': 669.0,
+        },
       ],
       'sidePanel': <String, dynamic>{
         'left': 871.0,

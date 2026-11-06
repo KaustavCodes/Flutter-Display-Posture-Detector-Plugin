@@ -75,9 +75,14 @@ enum DeviceType {
     DeviceType.other => 'Unidentified Device',
   };
 
-  bool get isTablet => this == DeviceType.ipad || this == DeviceType.androidTablet;
-  bool get isMobile => this == DeviceType.iphone || this == DeviceType.androidPhone;
-  bool get isDesktop => this == DeviceType.mac || this == DeviceType.windows || this == DeviceType.linux;
+  bool get isTablet =>
+      this == DeviceType.ipad || this == DeviceType.androidTablet;
+  bool get isMobile =>
+      this == DeviceType.iphone || this == DeviceType.androidPhone;
+  bool get isDesktop =>
+      this == DeviceType.mac ||
+      this == DeviceType.windows ||
+      this == DeviceType.linux;
 }
 
 /// Represents a 2D bounding rectangle in logical pixels (dp/points).
@@ -152,10 +157,12 @@ class DisplayMetrics {
   });
 
   /// Logical width in dp/points.
-  double get logicalWidth => density > 0 ? widthPx / density : widthPx.toDouble();
+  double get logicalWidth =>
+      density > 0 ? widthPx / density : widthPx.toDouble();
 
   /// Logical height in dp/points.
-  double get logicalHeight => density > 0 ? heightPx / density : heightPx.toDouble();
+  double get logicalHeight =>
+      density > 0 ? heightPx / density : heightPx.toDouble();
 
   /// Physical resolution [Size].
   Size get physicalSize => Size(widthPx.toDouble(), heightPx.toDouble());
@@ -226,10 +233,12 @@ class PostureEvent {
   });
 
   /// Primary display panel (e.g. Left screen in vertical fold, Top screen in horizontal fold).
-  PostureRect? get primaryPanel => displayAreas.isNotEmpty ? displayAreas.first : null;
+  PostureRect? get primaryPanel =>
+      displayAreas.isNotEmpty ? displayAreas.first : null;
 
   /// Secondary display panel (e.g. Right screen in vertical fold, Bottom screen in horizontal fold).
-  PostureRect? get secondaryPanel => displayAreas.length > 1 ? displayAreas[1] : null;
+  PostureRect? get secondaryPanel =>
+      displayAreas.length > 1 ? displayAreas[1] : null;
 
   /// Combined / Wide canvas area spanning across panels, excluding side panels.
   PostureRect get wideArea =>
@@ -240,7 +249,8 @@ class PostureEvent {
 
   /// Whether a physical or simulated hinge is present with positive dimensions.
   bool get hasHinge =>
-      hingeBounds != null && (hingeBounds!.width > 0 || hingeBounds!.height > 0);
+      hingeBounds != null &&
+      (hingeBounds!.width > 0 || hingeBounds!.height > 0);
 
   /// Whether the display is split into multiple panels (half-opened, separating, or tablet multi-panel).
   bool get isSplit =>
@@ -250,11 +260,22 @@ class PostureEvent {
       (isTablet && orientation == PostureOrientation.landscape);
 
   /// Whether the hinge is vertically oriented (book posture: left/right panes).
-  bool get isVerticalHinge =>
-      hingeBounds != null ? hingeBounds!.isVertical : (orientation == PostureOrientation.landscape);
+  bool get isVerticalHinge => hingeBounds != null
+      ? hingeBounds!.isVertical
+      : (orientation == PostureOrientation.landscape);
 
   /// Whether the hinge is horizontally oriented (laptop/tabletop posture: top/bottom panes).
   bool get isHorizontalHinge => !isVerticalHinge;
+
+  /// Whether the device is propped open in a horizontal tabletop posture (laptop mode: top display, bottom controls).
+  bool get isTableTop => isSplit && isHorizontalHinge;
+
+  /// Whether the device is half-opened in a vertical book posture (left/right split panes).
+  bool get isBookPosture => isSplit && isVerticalHinge;
+
+  /// Whether the device is flat (normal single display or fully unfolded).
+  bool get isFlat =>
+      foldState == FoldState.flat || foldState == FoldState.normal;
 
   factory PostureEvent.fromMap(Map<dynamic, dynamic> map) {
     PostureRect? hinge;
@@ -327,16 +348,16 @@ class PostureEvent {
 
   @override
   int get hashCode => Object.hash(
-        foldState,
-        isSeparating,
-        orientation,
-        deviceType,
-        hingeBounds,
-        sidePanel,
-        combinedArea,
-        isTablet,
-        Object.hashAll(displayAreas),
-      );
+    foldState,
+    isSeparating,
+    orientation,
+    deviceType,
+    hingeBounds,
+    sidePanel,
+    combinedArea,
+    isTablet,
+    Object.hashAll(displayAreas),
+  );
 
   static bool _listEquals<E>(List<E> a, List<E> b) {
     if (identical(a, b)) return true;

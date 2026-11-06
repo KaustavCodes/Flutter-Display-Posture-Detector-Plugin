@@ -4,11 +4,10 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-blue.svg)](https://pub.dev/packages/display_posture_detector)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-A Flutter plugin for real-time detection of display postures, hardware hinge bounds, side panel cutouts, device orientation, device classification, and dual-display regions on foldable, dual-screen, and tablet devices.
+A Flutter plugin for real-time detection of display postures, hardware hinge bounds, side panel cutouts, device orientation, device classification, and dual-display regions on foldable, dual-screen, and tablet devices—now with **built-in adaptive window size breakpoints** for seamless responsive design.
 
-> **Work in Progress (Active Testing & Device Expansion)**  
-> This package is actively under development and continuously tested across a wide range of devices—including dual-screen devices (e.g. iPhone Duo simulator, Microsoft Surface Duo), foldables (Samsung Galaxy Z Fold/Flip, Google Pixel Fold), tablets (iPads, Android tablets), and standard mobile phones.  
-> Our primary goal is to make it effortless for Flutter developers to accurately judge **device orientation**, **available spacing**, **window size**, and **physical hinge creases** to create responsive multi-screen layouts.  
+> **Active Testing & Device Expansion**  
+> This package is actively tested across a wide range of devices—including dual-screen devices (e.g. iPhone Duo simulator), foldables (Samsung Galaxy Z Fold/Flip, Google Pixel Fold), tablets (iPads, Android tablets), floating windows (Samsung Pop-up view, Android freeform), and desktop window resizing (macOS, Windows).  
 > If you test this on additional hardware or encounter edge cases, please feel free to [open an issue or contribute](https://github.com/KaustavCodes/Flutter-Display-Posture-Detector-Plugin/issues)!
 
 ---
@@ -16,14 +15,17 @@ A Flutter plugin for real-time detection of display postures, hardware hinge bou
 ## Features
 
 - **Fold State Detection**: Accurately tracks `FoldState.flat` (unfolded flat continuous), `FoldState.halfOpened` (dual-screen book / laptop tabletop posture), and `FoldState.normal` (standard flat screen).
+- **Tabletop, Book & Flat Posture Getters**: High-level semantic properties on `PostureEvent` (`isTableTop`, `isBookPosture`, `isFlat`) to build posture-specific layouts instantly.
+- **Adaptive Breakpoints & Window Size Classes**: Classify window widths into `WindowSizeClass.compact`, `medium`, and `expanded` with zero layout delay.
+- **Android Floating & Multi-Window Ready**: Works out of the box with Samsung Pop-up view, Android freeform/multi-window, and iPad Split View via performant `MediaQuery.sizeOf(context)` aspect queries.
+- **Configurable Breakpoints (`PostureBreakpoints`)**: Configure global thresholds in `main()` with `DisplayPostureDetector.initialize()` using `standard` (768/1024), `material` (600/840), or custom values.
+- **`AdaptivePostureBuilder` Widget**: An out-of-the-box adaptive widget that tracks both real-time physical fold posture and window size classes in a single unified callback.
 - **Hardware Hinge & Crease Bounds (`hingeBounds`)**: Emits exact bounding rectangles (`PostureRect`) in logical dp representing the physical hinge or division crease.
 - **Isolated Display Regions (`displayAreas`)**: Provides exact hardware coordinates for individual usable screen panels (Pane 1 and Pane 2) taking into account physical hinges and edge panels.
 - **Side Panel Inset Tracking (`sidePanel`)**: Detects status/dock panels (such as the iPhone Duo right-side clock/status panel or system bar insets) so dual-pane layouts remain pixel-aligned with physical hardware hinges.
-- **Full-Bleed Pane Sizing**: Pane 1 anchors to the physical hinge width, while Pane 2 expands to take up all remaining space on the right or bottom of the device.
-- **Combined Wide Canvas (`combinedArea` / `wideArea`)**: Provides the continuous usable canvas across all panels, excluding the side panel, allowing apps to span wide widescreen content.
+- **Combined Wide Canvas (`combinedArea` / `wideArea`)**: Provides the continuous usable canvas across all panels, excluding the side panel, allowing apps to span wide panoramic content.
 - **Tablet Landscape (50% / 50%) Multi-Panel**: Returns dual 50%/50% split viewports when running in landscape on tablets or iPads.
 - **Hardware & Platform Classification (`DeviceType`)**: Classifies devices into `iphone`, `ipad`, `androidPhone`, `androidTablet`, `mac`, `windows`, `linux`, and `other`, with `isTablet`, `isMobile`, and `isDesktop` helpers.
-- **Physical & Logical Screen Telemetry**: Hardware pixel resolution (`widthPx`, `heightPx`), screen density scale factor (`density`), and orientation (`portrait`, `landscape`).
 - **Interactive Simulation**: Built-in posture simulation toggles for rapid testing on standard non-foldable phones, iPads, and simulators.
 
 ---
@@ -38,19 +40,9 @@ A Flutter plugin for real-time detection of display postures, hardware hinge bou
 | **Side Panel Detection** | Supported | Supported |
 | **Combined Wide Canvas** | Supported | Supported |
 | **Tablet Landscape (50% / 50%)** | Supported | Supported |
+| **Adaptive Breakpoints** | Supported (Floating windows & full-screen) | Supported (iPad Split View & full-screen) |
 | **Device Classification (`deviceType`)** | Supported (`androidPhone`, `androidTablet`) | Supported (`iphone`, `ipad`, `mac`) |
 | **Screen Metrics & Orientation** | Supported | Supported |
-
-### Android & Dual-Screen Devices (Surface Duo, Galaxy Z Fold/Flip, Pixel Fold)
-On Android, the plugin leverages Google's official Jetpack WindowManager (`androidx.window:window` / `WindowInfoTracker`) API.
-- **Microsoft Surface Duo / Duo 2**: Reports two distinct physical screens separated by an 84px physical hinge mask (`isSeparating: true`).
-- **Galaxy Z Fold / Pixel Fold**: Reports single flexible display unfolding flat or half-opened in book posture.
-- **Galaxy Z Flip**: Reports clamshell tabletop/laptop posture with horizontal hinge separation.
-
-### iOS Support (iPhone Duo, iPad, & Simulators)
-- Supports division regions and division lines on dual-screen setups (e.g. iPhone Duo simulator with iOS 27.1).
-- Detects the side panel (status/dock area) so that Pane 1 and Pane 2 maintain their true physical proportions without shifting the hinge off-center.
-- Provides automatic 50%/50% panel splits on iPad/tablet landscape orientations.
 
 ---
 
@@ -62,30 +54,85 @@ Add `display_posture_detector` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  display_posture_detector: ^0.0.1
+  display_posture_detector: ^0.0.3
 ```
 
-### 2. Basic Usage
+### 2. Optional Startup Initialization (Custom Breakpoints)
+
+Initialize global breakpoints once in `main()` before launching `runApp()`:
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:display_posture_detector/display_posture_detector.dart';
 
-final _plugin = DisplayPostureDetector();
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
 
-// 1. Fetch physical display metrics snapshot
-final metrics = await _plugin.getMetrics();
-print('Device Type: ${metrics.deviceType.displayName}');
-print('Physical: ${metrics.widthPx}x${metrics.heightPx} px @ ${metrics.density}x');
-print('Logical Viewport: ${metrics.logicalWidth}x${metrics.logicalHeight} dp');
-print('Orientation: ${metrics.orientation}');
+  // Configure custom responsive breakpoints (defaults to 768 / 1024)
+  DisplayPostureDetector.initialize(
+    breakpoints: const PostureBreakpoints(
+      compact: 768.0,  // Anything under 768 is compact / mobile / floating window
+      medium: 1024.0,  // 768 to 1023 is tablet / medium
+    ),
+  );
 
-// 2. Listen to real-time posture and hinge changes
-_plugin.onPostureChanged.listen((event) {
-  print('Device Type: ${event.deviceType.displayName}');
+  runApp(const MyApp());
+}
+```
+
+---
+
+## Quick Usage
+
+### 1. Fast Responsive Checks ($O(1)$)
+Query current window width and floating window classification directly from any widget:
+
+```dart
+// Context-based aspect checks (reacts only when window bounds change)
+if (DisplayPostureDetector.isCompact(context)) {
+  return const MobileLayout();
+} else if (DisplayPostureDetector.isDesktop(context)) {
+  return const DesktopSidebarLayout();
+}
+
+// Or check with explicit constraints (e.g. inside a LayoutBuilder)
+if (DisplayPostureDetector.isDesktopWidth(constraints.maxWidth)) {
+  return const DesktopSidebarLayout();
+}
+```
+
+### 2. All-in-One `AdaptivePostureBuilder`
+React to both physical folding posture and responsive window sizing seamlessly:
+
+```dart
+AdaptivePostureBuilder(
+  builder: (context, posture, sizeClass) {
+    // 1. Check physical posture first (propped on table / half-opened)
+    if (posture.isTableTop) {
+      return const TableTopClamshellLayout(); // Top display, bottom controls
+    } else if (posture.isBookPosture) {
+      return const BookDualPaneLayout(); // Left / right reading panes
+    }
+
+    // 2. Fall back to responsive window size class (floating window, phone, or desktop)
+    if (sizeClass == WindowSizeClass.expanded) {
+      return const DesktopSidebarLayout();
+    }
+    return const MobileSinglePaneLayout();
+  },
+)
+```
+
+### 3. Listening to Raw Hardware Posture Stream
+
+```dart
+final detector = DisplayPostureDetector();
+
+detector.onPostureChanged.listen((event) {
   print('Fold State: ${event.foldState}');
+  print('Is TableTop: ${event.isTableTop}');
+  print('Is Book Posture: ${event.isBookPosture}');
   print('Is Separating: ${event.isSeparating}');
-  print('Orientation: ${event.orientation}');
 
   if (event.hasHinge) {
     final hinge = event.hingeBounds!;
@@ -101,9 +148,8 @@ _plugin.onPostureChanged.listen((event) {
 
 ---
 
-## Responsive Layouts: Dual-Pane vs. Combined Wide
+## Dual-Pane vs. Combined Wide Layouts
 
-### Hardware-Accurate Positioning & Full Bleed
 Physical hinge coordinates (`event.hingeBounds`) are relative to the hardware screen.
 - **Pane 1**: Sized to match `event.displayAreas[0].width` (anchored to the physical hinge left edge).
 - **Hinge**: Renders with `event.hingeBounds.width` at the exact physical fold location.
@@ -117,15 +163,13 @@ Widget build(BuildContext context) {
       builder: (context, constraints) {
         if (event.isSplit) {
           if (viewMode == DisplayViewMode.combinedWide) {
-            // Spanned wide content across both panels, excluding the side panel
             return Container(
               width: event.wideArea.width,
               height: event.wideArea.height,
-              child: WideDashboardCanvas(),
+              child: const WideDashboardCanvas(),
             );
           }
 
-          // Split panels: Pane 1 anchors to hinge, Pane 2 fills the rest of the right side
           final isVertical = event.isVerticalHinge;
           final pane1Size = isVertical 
               ? (event.primaryPanel?.width ?? constraints.maxWidth / 2)
@@ -138,23 +182,22 @@ Widget build(BuildContext context) {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(width: pane1Size, child: PrimaryPane()),
+                    SizedBox(width: pane1Size, child: const PrimaryPane()),
                     HingeIndicator(thickness: hingeThickness),
-                    Expanded(child: SecondaryPane()), // Fills entire right side
+                    const Expanded(child: SecondaryPane()), // Fills entire right side
                   ],
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(height: pane1Size, child: PrimaryPane()),
+                    SizedBox(height: pane1Size, child: const PrimaryPane()),
                     HingeIndicator(thickness: hingeThickness),
-                    Expanded(child: SecondaryPane()), // Fills entire bottom side
+                    const Expanded(child: SecondaryPane()), // Fills entire bottom side
                   ],
                 );
         }
 
-        // Standard single-screen continuous layout
-        return SinglePaneView();
+        return const SinglePaneView();
       },
     ),
   );
@@ -171,6 +214,9 @@ Emitted by `DisplayPostureDetector.onPostureChanged`:
 | Field / Getter | Type | Description |
 |---|---|---|
 | `foldState` | `FoldState` | `flat`, `halfOpened`, or `normal`. |
+| `isTableTop` | `bool` | `true` when propped open horizontally (clamshell tabletop). |
+| `isBookPosture` | `bool` | `true` when half-opened vertically (book left/right panes). |
+| `isFlat` | `bool` | `true` when flat continuous or normal single screen. |
 | `isSeparating` | `bool` | Whether the hinge physically occludes or separates content. |
 | `orientation` | `PostureOrientation` | `portrait` or `landscape`. |
 | `deviceType` | `DeviceType` | Classified hardware/platform form factor. |
@@ -186,29 +232,10 @@ Emitted by `DisplayPostureDetector.onPostureChanged`:
 | `isVerticalHinge` | `bool` | `true` for book fold (left/right split). |
 | `isHorizontalHinge` | `bool` | `true` for tabletop clamshell fold (top/bottom split). |
 
-### `DeviceType`
-Classified device hardware form factors:
-- `DeviceType.iphone`: Apple iPhone (including iPhone Duo).
-- `DeviceType.ipad`: Apple iPad.
-- `DeviceType.androidPhone`: Android smartphone.
-- `DeviceType.androidTablet`: Android tablet.
-- `DeviceType.mac`: macOS / Mac Catalyst.
-- `DeviceType.windows`: Windows PC.
-- `DeviceType.linux`: Linux desktop.
-- `DeviceType.other`: Unidentified / generic device.
-
-Helper getters on `DeviceType`:
-- `isTablet`: `true` for `ipad` or `androidTablet`.
-- `isMobile`: `true` for `iphone` or `androidPhone`.
-- `isDesktop`: `true` for `mac`, `windows`, or `linux`.
-- `displayName`: Formatted readable label (e.g. `'iPhone'`, `'Android Tablet'`).
-
-### `PostureRect`
-A 2D bounding rectangle in logical pixels (dp/points):
-- `left`, `top`, `width`, `height`, `right`, `bottom`.
-- `isVertical`: `height >= width`.
-- `isHorizontal`: `width > height`.
-- `toRect()`: Converts to `dart:ui` `Rect` for seamless painting and positioning.
+### `WindowSizeClass` & `PostureBreakpoints`
+- **`WindowSizeClass.compact`**: Phone screens, Android pop-up floating windows, 1/3 split screen (< compact breakpoint).
+- **`WindowSizeClass.medium`**: Foldables unfolded, small tablets, 1/2 split screen windows.
+- **`WindowSizeClass.expanded`**: Large tablets, laptops, full-screen desktop windows.
 
 ---
 

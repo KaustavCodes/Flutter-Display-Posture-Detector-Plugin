@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:display_posture_detector/display_posture_detector.dart';
 import 'package:display_posture_detector/display_posture_detector_platform_interface.dart';
@@ -44,7 +45,10 @@ void main() {
       DisplayPostureDetectorPlatform.instance;
 
   test('$MethodChannelDisplayPostureDetector is the default instance', () {
-    expect(initialPlatform, isInstanceOf<MethodChannelDisplayPostureDetector>());
+    expect(
+      initialPlatform,
+      isInstanceOf<MethodChannelDisplayPostureDetector>(),
+    );
   });
 
   test('getMetrics returns DisplayMetrics from mock platform', () async {
@@ -61,18 +65,21 @@ void main() {
     expect(metrics.logicalWidth, closeTo(411.4, 0.1));
   });
 
-  test('onPostureChanged emits PostureEvent with hinge and display areas', () async {
-    final detector = DisplayPostureDetector();
-    final fakePlatform = MockDisplayPostureDetectorPlatform();
-    DisplayPostureDetectorPlatform.instance = fakePlatform;
+  test(
+    'onPostureChanged emits PostureEvent with hinge and display areas',
+    () async {
+      final detector = DisplayPostureDetector();
+      final fakePlatform = MockDisplayPostureDetectorPlatform();
+      DisplayPostureDetectorPlatform.instance = fakePlatform;
 
-    final event = await detector.onPostureChanged.first;
-    expect(event.foldState, FoldState.halfOpened);
-    expect(event.isSeparating, isTrue);
-    expect(event.hasHinge, isTrue);
-    expect(event.hingeBounds?.height, 24);
-    expect(event.displayAreas.length, 2);
-  });
+      final event = await detector.onPostureChanged.first;
+      expect(event.foldState, FoldState.halfOpened);
+      expect(event.isSeparating, isTrue);
+      expect(event.hasHinge, isTrue);
+      expect(event.hingeBounds?.height, 24);
+      expect(event.displayAreas.length, 2);
+    },
+  );
 
   test('PostureEvent and DisplayMetrics value equality and hashCode work correctly', () {
     const event1 = PostureEvent(
@@ -112,5 +119,67 @@ void main() {
 
     expect(metrics1, equals(metrics2));
     expect(metrics1.hashCode, equals(metrics2.hashCode));
+  });
+
+  test('PostureBreakpoints and DisplayPostureDetector initialize & responsive checks work', () {
+    DisplayPostureDetector.initialize(
+      breakpoints: const PostureBreakpoints(compact: 768.0, medium: 1024.0),
+    );
+
+    expect(DisplayPostureDetector.breakpoints.compact, 768.0);
+    expect(DisplayPostureDetector.breakpoints.medium, 1024.0);
+
+    // Compact (< 768)
+    expect(DisplayPostureDetector.classifyWidth(390), WindowSizeClass.compact);
+    expect(DisplayPostureDetector.isCompactWidth(390), isTrue);
+    expect(DisplayPostureDetector.isDesktopWidth(390), isFalse);
+
+    // Medium (768 to 1023)
+    expect(DisplayPostureDetector.classifyWidth(800), WindowSizeClass.medium);
+    expect(DisplayPostureDetector.isMediumWidth(800), isTrue);
+
+    // Desktop / Expanded (>= 1024)
+    expect(
+      DisplayPostureDetector.classifyWidth(1280),
+      WindowSizeClass.expanded,
+    );
+    expect(DisplayPostureDetector.isDesktopWidth(1280), isTrue);
+  });
+
+  test('PostureEvent posture convenience getters identify tabletop, book, and flat postures', () {
+    const tabletop = PostureEvent(
+      foldState: FoldState.halfOpened,
+      isSeparating: true,
+      orientation: PostureOrientation.portrait,
+      hingeBounds: PostureRect(
+        left: 0,
+        top: 400,
+        width: 400,
+        height: 20,
+      ), // horizontal hinge
+    );
+    expect(tabletop.isTableTop, isTrue);
+    expect(tabletop.isBookPosture, isFalse);
+
+    const book = PostureEvent(
+      foldState: FoldState.halfOpened,
+      isSeparating: true,
+      orientation: PostureOrientation.landscape,
+      hingeBounds: PostureRect(
+        left: 400,
+        top: 0,
+        width: 20,
+        height: 400,
+      ), // vertical hinge
+    );
+    expect(book.isBookPosture, isTrue);
+    expect(book.isTableTop, isFalse);
+
+    const flat = PostureEvent(
+      foldState: FoldState.flat,
+      isSeparating: false,
+      orientation: PostureOrientation.portrait,
+    );
+    expect(flat.isFlat, isTrue);
   });
 }

@@ -1,3 +1,14 @@
+## 0.0.3
+
+* **iOS Hinge Interaction Integration**: Connected native `UIHingeInteraction` and `UIHinge.Status` on iOS to accurately detect semi-folded / half-opened postures in vertical Book mode in addition to Tabletop mode.
+* **Adaptive & Responsive System**: Added `WindowSizeClass` (`compact`, `medium`, `expanded`) and configurable `PostureBreakpoints` (with `standard` 768/1024 and `material` 600/840 presets).
+* **Startup Initialization**: Added `DisplayPostureDetector.initialize(...)` and `configure(...)` for one-time global breakpoint configuration in `main()`.
+* **Zero-Overhead Responsive Queries**: Added $O(1)$ size queries (`sizeClass(context)`, `isCompact(context)`, `isMedium(context)`, `isExpanded(context)`, `isDesktop(context)`, `isMobile(context)`, and constraint-based width helpers).
+* **Android Floating & Multi-Window Ready**: Native support for Samsung Pop-up view, Android multi-window split, iPad Split View, and desktop window resizing via performant `MediaQuery.sizeOf(context)` aspect queries.
+* **Convenience Posture Getters**: Added `isTableTop`, `isBookPosture`, and `isFlat` properties to `PostureEvent`.
+* **`AdaptivePostureBuilder` Widget**: Added an out-of-the-box adaptive widget that tracks both real-time physical posture and window size classes.
+* **Example & Docs**: Updated example application and documentation to demonstrate responsive breakpoint customization, fixed pane header wrapping, and posture-aware layouts.
+
 ## 0.0.2
 
 * **Performance Optimization**: Implemented native event deduplication on iOS (`PostureState`) and Android (`lastEmittedPayload`) to eliminate redundant PlatformChannel serialization and bridge traffic during rapid layout transitions.

@@ -1,10 +1,14 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:display_posture_detector/display_posture_detector.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  DisplayPostureDetector.initialize(
+    breakpoints: const PostureBreakpoints(compact: 768.0, medium: 1024.0),
+  );
   runApp(const MyApp());
 }
 
@@ -158,33 +162,30 @@ class _PostureDashboardState extends State<PostureDashboard> {
     // Use native hinge dimensions if available, otherwise 24dp for simulation
     final double hingeThickness = _currentPosture.hasHinge
         ? (isVertical
-            ? (_currentPosture.hingeBounds?.width ?? 24.0)
-            : (_currentPosture.hingeBounds?.height ?? 24.0))
+              ? (_currentPosture.hingeBounds?.width ?? 24.0)
+              : (_currentPosture.hingeBounds?.height ?? 24.0))
         : 24.0;
 
     // Calculate exact pane sizes taking into account side panels & hinge
     double pane1Size;
-    double pane2Size;
 
     if (hasNativeRegions && !_simulateHingeFold && !_simulateTabletLandscape) {
       // Use exact hardware-measured region sizes from native platform!
       if (isVertical) {
         pane1Size = _currentPosture.displayAreas[0].width;
-        pane2Size = _currentPosture.displayAreas[1].width;
       } else {
         pane1Size = _currentPosture.displayAreas[0].height;
-        pane2Size = _currentPosture.displayAreas[1].height;
       }
     } else {
       // Fallback or simulated calculation (takes into account side panel if detected)
       final sidePanelSize = isVertical
           ? (_currentPosture.sidePanel?.width ?? 0.0)
           : (_currentPosture.sidePanel?.height ?? 0.0);
-      final totalAvailable = (isVertical ? constraints.maxWidth : constraints.maxHeight) -
+      final totalAvailable =
+          (isVertical ? constraints.maxWidth : constraints.maxHeight) -
           sidePanelSize -
           hingeThickness;
       pane1Size = (totalAvailable / 2.0).clamp(0.0, double.infinity);
-      pane2Size = pane1Size;
     }
 
     final paneA = _PaneContainer(
@@ -201,7 +202,9 @@ class _PostureDashboardState extends State<PostureDashboard> {
     );
 
     final paneB = _PaneContainer(
-      title: isVertical ? 'PANE 2 • SECONDARY DISPLAY' : 'PANE 2 • TABLETOP CONTROLS',
+      title: isVertical
+          ? 'PANE 2 • SECONDARY DISPLAY'
+          : 'PANE 2 • TABLETOP CONTROLS',
       color: Colors.teal,
       child: _buildPaneBContent(isVertical),
     );
@@ -393,7 +396,8 @@ class _PostureDashboardState extends State<PostureDashboard> {
         children: [
           Expanded(
             child: InkWell(
-              onTap: () => setState(() => _viewMode = DisplayViewMode.splitPanels),
+              onTap: () =>
+                  setState(() => _viewMode = DisplayViewMode.splitPanels),
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -432,7 +436,8 @@ class _PostureDashboardState extends State<PostureDashboard> {
           ),
           Expanded(
             child: InkWell(
-              onTap: () => setState(() => _viewMode = DisplayViewMode.combinedWide),
+              onTap: () =>
+                  setState(() => _viewMode = DisplayViewMode.combinedWide),
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -488,7 +493,11 @@ class _PostureDashboardState extends State<PostureDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.aspect_ratio, color: Colors.tealAccent, size: 22),
+              const Icon(
+                Icons.aspect_ratio,
+                color: Colors.tealAccent,
+                size: 22,
+              ),
               const SizedBox(width: 10),
               const Text(
                 'COMBINED WIDE DISPLAY CANVAS',
@@ -560,8 +569,10 @@ class _PostureDashboardState extends State<PostureDashboard> {
           ),
           const SizedBox(height: 8),
           if (areas.isEmpty)
-            const Text('No isolated regions reported.',
-                style: TextStyle(fontSize: 11, color: Colors.white54))
+            const Text(
+              'No isolated regions reported.',
+              style: TextStyle(fontSize: 11, color: Colors.white54),
+            )
           else
             ...areas.asMap().entries.map((entry) {
               final idx = entry.key;
@@ -574,19 +585,28 @@ class _PostureDashboardState extends State<PostureDashboard> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: idx == 0 ? Colors.indigoAccent : Colors.tealAccent,
+                        color: idx == 0
+                            ? Colors.indigoAccent
+                            : Colors.tealAccent,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Panel ${idx + 1}:',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${rect.width.toStringAsFixed(1)} × ${rect.height.toStringAsFixed(1)} dp  (L: ${rect.left.toStringAsFixed(0)}, T: ${rect.top.toStringAsFixed(0)})',
-                      style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white70),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontFamily: 'monospace',
+                        color: Colors.white70,
+                      ),
                     ),
                   ],
                 ),
@@ -607,12 +627,20 @@ class _PostureDashboardState extends State<PostureDashboard> {
                 const SizedBox(width: 8),
                 const Text(
                   'Side Panel:',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.amberAccent),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.amberAccent,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   '${side.width.toStringAsFixed(1)} × ${side.height.toStringAsFixed(1)} dp  (L: ${side.left.toStringAsFixed(0)})',
-                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: Colors.white70,
+                  ),
                 ),
               ],
             ),
@@ -631,12 +659,20 @@ class _PostureDashboardState extends State<PostureDashboard> {
               const SizedBox(width: 8),
               const Text(
                 'Combined Wide:',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.greenAccent),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.greenAccent,
+                ),
               ),
               const SizedBox(width: 6),
               Text(
                 '${wide.width.toStringAsFixed(1)} × ${wide.height.toStringAsFixed(1)} dp',
-                style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white70),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: Colors.white70,
+                ),
               ),
             ],
           ),
@@ -655,7 +691,10 @@ class _PostureDashboardState extends State<PostureDashboard> {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Row(
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
             children: [
               Text(
                 'Display Posture',
@@ -665,13 +704,17 @@ class _PostureDashboardState extends State<PostureDashboard> {
                   letterSpacing: 0.3,
                 ),
               ),
-              const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2.5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.indigo.withValues(alpha: 0.25),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: Colors.indigoAccent.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -691,6 +734,27 @@ class _PostureDashboardState extends State<PostureDashboard> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2.5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: Colors.tealAccent.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  '${MediaQuery.sizeOf(context).width.toInt()}dp • ${DisplayPostureDetector.sizeClass(context).name.toUpperCase()}',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.tealAccent.shade100,
+                  ),
                 ),
               ),
             ],
@@ -733,22 +797,22 @@ class _PostureDashboardState extends State<PostureDashboard> {
     final fold = _effectiveFoldState;
     final (IconData icon, String label, Color color) = switch (fold) {
       FoldState.halfOpened => (
-          Icons.laptop_chromebook,
-          'HALF-OPENED (DUAL-SCREEN POSTURE)',
-          Colors.amber
-        ),
+        Icons.laptop_chromebook,
+        'HALF-OPENED (DUAL-SCREEN POSTURE)',
+        Colors.amber,
+      ),
       FoldState.flat => (
-          Icons.tablet_android,
-          'UNFOLDED FLAT CONTINUOUS',
-          Colors.greenAccent
-        ),
+        Icons.tablet_android,
+        'UNFOLDED FLAT CONTINUOUS',
+        Colors.greenAccent,
+      ),
       FoldState.normal => (
-          _currentPosture.orientation == PostureOrientation.landscape
-              ? Icons.stay_current_landscape
-              : Icons.stay_current_portrait,
-          'STANDARD DISPLAY (${_currentPosture.orientation.name.toUpperCase()})',
-          Colors.lightBlueAccent
-        ),
+        _currentPosture.orientation == PostureOrientation.landscape
+            ? Icons.stay_current_landscape
+            : Icons.stay_current_portrait,
+        'STANDARD DISPLAY (${_currentPosture.orientation.name.toUpperCase()})',
+        Colors.lightBlueAccent,
+      ),
     };
 
     return Container(
@@ -804,10 +868,12 @@ class _PostureDashboardState extends State<PostureDashboard> {
 
   Widget _buildTelemetryCards({bool compact = false}) {
     final m = _metrics;
-    final logicalWidth =
-        m != null ? (m.widthPx / m.density).toStringAsFixed(0) : '--';
-    final logicalHeight =
-        m != null ? (m.heightPx / m.density).toStringAsFixed(0) : '--';
+    final logicalWidth = m != null
+        ? (m.widthPx / m.density).toStringAsFixed(0)
+        : '--';
+    final logicalHeight = m != null
+        ? (m.heightPx / m.density).toStringAsFixed(0)
+        : '--';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -820,7 +886,9 @@ class _PostureDashboardState extends State<PostureDashboard> {
                 value: _currentPosture.deviceType.displayName,
                 subtitle: _currentPosture.deviceType.isTablet
                     ? 'Tablet form factor'
-                    : (_currentPosture.deviceType.isDesktop ? 'Desktop OS' : 'Mobile form factor'),
+                    : (_currentPosture.deviceType.isDesktop
+                          ? 'Desktop OS'
+                          : 'Mobile form factor'),
                 accentColor: Colors.deepPurpleAccent,
               ),
             ),
@@ -829,7 +897,8 @@ class _PostureDashboardState extends State<PostureDashboard> {
               child: _MetricTile(
                 title: 'ORIENTATION',
                 value: _currentPosture.orientation.name.toUpperCase(),
-                subtitle: _currentPosture.orientation == PostureOrientation.landscape
+                subtitle:
+                    _currentPosture.orientation == PostureOrientation.landscape
                     ? 'Landscape mode'
                     : 'Portrait mode',
                 accentColor: Colors.blueAccent,
@@ -843,7 +912,9 @@ class _PostureDashboardState extends State<PostureDashboard> {
             Expanded(
               child: _MetricTile(
                 title: 'PHYSICAL RESOLUTION',
-                value: m != null ? '${m.widthPx} × ${m.heightPx}' : 'Loading...',
+                value: m != null
+                    ? '${m.widthPx} × ${m.heightPx}'
+                    : 'Loading...',
                 subtitle: 'Hardware pixels',
                 accentColor: Colors.tealAccent,
               ),
@@ -853,7 +924,9 @@ class _PostureDashboardState extends State<PostureDashboard> {
               child: _MetricTile(
                 title: 'LOGICAL VIEWPORT',
                 value: '$logicalWidth × $logicalHeight dp',
-                subtitle: m != null ? 'Scale: ${m.density.toStringAsFixed(2)}x' : 'dp points',
+                subtitle: m != null
+                    ? 'Scale: ${m.density.toStringAsFixed(2)}x'
+                    : 'dp points',
                 accentColor: Colors.amberAccent,
               ),
             ),
@@ -881,7 +954,11 @@ class _PostureDashboardState extends State<PostureDashboard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.line_weight, size: 16, color: Colors.amberAccent),
+              const Icon(
+                Icons.line_weight,
+                size: 16,
+                color: Colors.amberAccent,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'HINGE METRICS',
@@ -951,7 +1028,10 @@ class _PostureDashboardState extends State<PostureDashboard> {
                   children: [
                     Text(
                       'Simulate Hinge Fold',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     SizedBox(height: 2),
                     Text(
@@ -975,21 +1055,34 @@ class _PostureDashboardState extends State<PostureDashboard> {
             const Divider(height: 16, color: Colors.white12),
             Row(
               children: [
-                const Text('Axis:', style: TextStyle(fontSize: 10, color: Colors.white70)),
+                const Text(
+                  'Axis:',
+                  style: TextStyle(fontSize: 10, color: Colors.white70),
+                ),
                 const SizedBox(width: 8),
                 ChoiceChip(
-                  label: const Text('Vertical (Book)', style: TextStyle(fontSize: 10)),
+                  label: const Text(
+                    'Vertical (Book)',
+                    style: TextStyle(fontSize: 10),
+                  ),
                   selected: _isVerticalHinge,
                   onSelected: (selected) {
-                    if (selected) setState(() => _overrideSimulatedVertical = true);
+                    if (selected) {
+                      setState(() => _overrideSimulatedVertical = true);
+                    }
                   },
                 ),
                 const SizedBox(width: 6),
                 ChoiceChip(
-                  label: const Text('Horizontal (Laptop)', style: TextStyle(fontSize: 10)),
+                  label: const Text(
+                    'Horizontal (Laptop)',
+                    style: TextStyle(fontSize: 10),
+                  ),
                   selected: !_isVerticalHinge,
                   onSelected: (selected) {
-                    if (selected) setState(() => _overrideSimulatedVertical = false);
+                    if (selected) {
+                      setState(() => _overrideSimulatedVertical = false);
+                    }
                   },
                 ),
               ],
@@ -1005,7 +1098,10 @@ class _PostureDashboardState extends State<PostureDashboard> {
                   children: [
                     Text(
                       'Simulate Tablet (50% / 50%)',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     SizedBox(height: 2),
                     Text(
@@ -1017,7 +1113,8 @@ class _PostureDashboardState extends State<PostureDashboard> {
               ),
               Switch(
                 value: _simulateTabletLandscape,
-                onChanged: (val) => setState(() => _simulateTabletLandscape = val),
+                onChanged: (val) =>
+                    setState(() => _simulateTabletLandscape = val),
               ),
             ],
           ),
@@ -1052,7 +1149,10 @@ class _PostureDashboardState extends State<PostureDashboard> {
               Expanded(
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.sync, size: 14),
-                  label: const Text('Refetch Native Metrics', style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Refetch Native Metrics',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo.withValues(alpha: 0.3),
                     foregroundColor: Colors.indigoAccent.shade100,
