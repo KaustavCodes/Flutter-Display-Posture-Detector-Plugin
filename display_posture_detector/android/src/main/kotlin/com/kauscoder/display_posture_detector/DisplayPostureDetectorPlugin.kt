@@ -29,6 +29,7 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
     private var lastFoldState: String = "NORMAL"
     private var lastIsSeparating: Boolean = false
     private var lastHingeBoundsPx: Rect? = null
+    private var lastEmittedPayload: Map<String, Any>? = null
 
     private val configCallback = object : ComponentCallbacks {
         override fun onConfigurationChanged(newConfig: Configuration) {
@@ -118,6 +119,7 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
     private fun stopTracking() {
         windowScope?.cancel()
         windowScope = null
+        lastEmittedPayload = null
         try {
             activity?.unregisterComponentCallbacks(configCallback)
         } catch (_: Exception) {}
@@ -263,6 +265,12 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
         if (sidePanel != null) {
             payload["sidePanel"] = sidePanel
         }
+
+        // Deduplication: Avoid redundant serialization and bridge traffic if state is unchanged
+        if (lastEmittedPayload == payload) {
+            return
+        }
+        lastEmittedPayload = payload
 
         sink.success(payload)
     }

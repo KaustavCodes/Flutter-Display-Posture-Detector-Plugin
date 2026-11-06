@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'display_posture_detector'
-  s.version          = '0.0.1'
+  s.version          = '0.0.2'
   s.summary          = 'Flutter plugin for detecting display posture, hinge bounds, and multi-display regions.'
   s.description      = <<-DESC
 A Flutter plugin to detect display postures, hardware hinge bounds, orientation, screen metrics, and multi-display regions on foldables and tablets.

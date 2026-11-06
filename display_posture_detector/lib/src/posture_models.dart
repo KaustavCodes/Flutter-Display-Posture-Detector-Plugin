@@ -184,6 +184,21 @@ class DisplayMetrics {
   @override
   String toString() =>
       'DisplayMetrics(${widthPx}x$heightPx px, density: ${density}x, orientation: ${orientation.name}, deviceType: ${deviceType.displayName})';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DisplayMetrics &&
+          runtimeType == other.runtimeType &&
+          widthPx == other.widthPx &&
+          heightPx == other.heightPx &&
+          density == other.density &&
+          orientation == other.orientation &&
+          deviceType == other.deviceType;
+
+  @override
+  int get hashCode =>
+      Object.hash(widthPx, heightPx, density, orientation, deviceType);
 }
 
 /// Event emitted when posture, hinge crease, display regions, or device orientation changes.
@@ -294,4 +309,41 @@ class PostureEvent {
   @override
   String toString() =>
       'PostureEvent(deviceType: ${deviceType.displayName}, foldState: $foldState, isSeparating: $isSeparating, orientation: $orientation, hingeBounds: $hingeBounds, displayAreas: ${displayAreas.length}, sidePanel: $sidePanel, combinedArea: $combinedArea)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PostureEvent &&
+          runtimeType == other.runtimeType &&
+          foldState == other.foldState &&
+          isSeparating == other.isSeparating &&
+          orientation == other.orientation &&
+          deviceType == other.deviceType &&
+          hingeBounds == other.hingeBounds &&
+          sidePanel == other.sidePanel &&
+          combinedArea == other.combinedArea &&
+          isTablet == other.isTablet &&
+          _listEquals(displayAreas, other.displayAreas);
+
+  @override
+  int get hashCode => Object.hash(
+        foldState,
+        isSeparating,
+        orientation,
+        deviceType,
+        hingeBounds,
+        sidePanel,
+        combinedArea,
+        isTablet,
+        Object.hashAll(displayAreas),
+      );
+
+  static bool _listEquals<E>(List<E> a, List<E> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }

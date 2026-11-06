@@ -15,9 +15,24 @@ private class PostureObserverView: UIView {
     }
 }
 
+private struct PostureState: Equatable {
+    let foldState: String
+    let isSeparating: Bool
+    let orientation: String
+    let deviceType: String
+    let isTablet: Bool
+    let bounds: CGRect
+    let safeFrame: CGRect
+    let hingeRect: CGRect?
+    let sidePanel: [String: Double]?
+    let displayAreas: [[String: Double]]
+}
+
 public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
     private weak var observerView: PostureObserverView?
+    private var lastEmittedState: PostureState?
+    private var emitScheduled = false
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let methodChannel = FlutterMethodChannel(
@@ -61,6 +76,7 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
 
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
+        self.lastEmittedState = nil
         attachObserverViewIfNeeded()
         emitCurrentPosture()
         return nil
@@ -70,6 +86,8 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
         observerView?.removeFromSuperview()
         observerView = nil
         eventSink = nil
+        lastEmittedState = nil
+        emitScheduled = false
         return nil
     }
 
@@ -81,16 +99,33 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
         obs.backgroundColor = .clear
         obs.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         obs.onLayoutOrFoldChanged = { [weak self] in
-            self?.emitCurrentPosture()
+            self?.scheduleEmit()
         }
 
         rootView.addSubview(obs)
         self.observerView = obs
     }
 
+    private func scheduleEmit() {
+        guard !emitScheduled else { return }
+        emitScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.emitScheduled = false
+            self.emitCurrentPosture()
+        }
+    }
+
+    private func getTargetView() -> UIView? {
+        if let parent = observerView?.superview {
+            return parent
+        }
+        return getActiveRootView()
+    }
+
     private func emitCurrentPosture() {
         guard let sink = eventSink else { return }
-        guard let targetView = observerView ?? getActiveRootView() else { return }
+        guard let targetView = getTargetView() else { return }
 
         let bounds = targetView.bounds
         let safeFrame = targetView.safeAreaLayoutGuide.layoutFrame
@@ -156,8 +191,8 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
                     rectToMap(CGRect(x: bounds.minX, y: hRect.maxY, width: bounds.width, height: bottomHeight))
                 ]
             }
-        } else if isTablet && orientation == "LANDSCAPE" {
-            // Tablet landscape mode: 2 panels (50% / 50%)
+        } else if isTablet && orientation == "LANDSCAPE" && bounds.width >= 700 {
+            // Tablet landscape mode: 2 panels (50% / 50%) for wide displays
             let halfWidth = bounds.width / 2.0
             displayAreas = [
                 rectToMap(CGRect(x: bounds.minX, y: bounds.minY, width: halfWidth, height: bounds.height)),
@@ -189,6 +224,25 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
         }
 
         let deviceType = getDeviceType(for: targetView)
+
+        let currentState = PostureState(
+            foldState: foldState,
+            isSeparating: isSeparating,
+            orientation: orientation,
+            deviceType: deviceType,
+            isTablet: isTablet,
+            bounds: bounds,
+            safeFrame: safeFrame,
+            hingeRect: hingeRect,
+            sidePanel: sidePanel,
+            displayAreas: displayAreas
+        )
+
+        // Deduplication: Avoid redundant serialization and bridge traffic if state is unchanged
+        if currentState == lastEmittedState {
+            return
+        }
+        lastEmittedState = currentState
 
         var payload: [String: Any] = [
             "foldState": foldState,

@@ -73,4 +73,44 @@ void main() {
     expect(event.hingeBounds?.height, 24);
     expect(event.displayAreas.length, 2);
   });
+
+  test('PostureEvent and DisplayMetrics value equality and hashCode work correctly', () {
+    const event1 = PostureEvent(
+      foldState: FoldState.halfOpened,
+      isSeparating: true,
+      orientation: PostureOrientation.portrait,
+      displayAreas: [PostureRect(left: 0, top: 0, width: 100, height: 100)],
+    );
+    const event2 = PostureEvent(
+      foldState: FoldState.halfOpened,
+      isSeparating: true,
+      orientation: PostureOrientation.portrait,
+      displayAreas: [PostureRect(left: 0, top: 0, width: 100, height: 100)],
+    );
+    const event3 = PostureEvent(
+      foldState: FoldState.flat,
+      isSeparating: false,
+      orientation: PostureOrientation.portrait,
+    );
+
+    expect(event1, equals(event2));
+    expect(event1.hashCode, equals(event2.hashCode));
+    expect(event1 == event3, isFalse);
+
+    const metrics1 = DisplayMetrics(
+      widthPx: 1080,
+      heightPx: 1920,
+      density: 2.0,
+      orientation: PostureOrientation.portrait,
+    );
+    const metrics2 = DisplayMetrics(
+      widthPx: 1080,
+      heightPx: 1920,
+      density: 2.0,
+      orientation: PostureOrientation.portrait,
+    );
+
+    expect(metrics1, equals(metrics2));
+    expect(metrics1.hashCode, equals(metrics2.hashCode));
+  });
 }
