@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../display_posture_detector.dart';
+import '../display_posture_detector_method_channel.dart';
+import '../display_posture_detector_platform_interface.dart';
 
 /// Signature for a builder function that receives physical posture and window size classification.
 typedef AdaptivePostureWidgetBuilder = Widget Function(
@@ -48,25 +50,35 @@ class _AdaptivePostureBuilderState extends State<AdaptivePostureBuilder> {
   @override
   void initState() {
     super.initState();
+    final platform = DisplayPostureDetectorPlatform.instance;
+    final cachedPosture = platform is MethodChannelDisplayPostureDetector
+        ? platform.latestPosture
+        : null;
     _currentPosture =
         widget.initialPosture ??
+        cachedPosture ??
         const PostureEvent(
           foldState: FoldState.normal,
           isSeparating: false,
           orientation: PostureOrientation.portrait,
         );
 
-    _subscription = _plugin.onPostureChanged.listen(
-      (event) {
-        if (!mounted) return;
-        if (event != _currentPosture) {
-          setState(() => _currentPosture = event);
-        }
-      },
-      onError: (_) {
-        // Fall back gracefully to existing posture if native stream has an issue
-      },
-    );
+    try {
+      _subscription = _plugin.onPostureChanged.listen(
+        (event) {
+          if (!mounted) return;
+          if (event != _currentPosture) {
+            setState(() => _currentPosture = event);
+          }
+        },
+        onError: (_) {
+          // Fall back gracefully to existing posture if native stream has an issue
+          // (for instance MissingPluginException on unsupported desktop hosts).
+        },
+      );
+    } catch (_) {
+      // Ignore synchronous platform-channel errors cleanly.
+    }
   }
 
   @override

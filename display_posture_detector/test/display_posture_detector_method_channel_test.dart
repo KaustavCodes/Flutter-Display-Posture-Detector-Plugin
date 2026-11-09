@@ -95,5 +95,114 @@ void main() {
     expect(event.displayAreas[1].width, 455.0);
     expect(event.sidePanel?.width, 80.0);
     expect(event.wideArea.width, 871.0);
+    expect(event.occlusionAreas, isEmpty);
+  });
+
+  test('PostureEvent parses occlusionAreas and computes sidePanelSafePadding', () {
+    final map = <String, dynamic>{
+      'foldState': 'NORMAL',
+      'isSeparating': false,
+      'orientation': 'LANDSCAPE',
+      'displayAreas': <dynamic>[
+        <String, dynamic>{
+          'left': 0.0,
+          'top': 0.0,
+          'width': 828.0,
+          'height': 430.0,
+        },
+      ],
+      'sidePanel': <String, dynamic>{
+        'left': 828.0,
+        'top': 0.0,
+        'width': 84.0,
+        'height': 430.0,
+      },
+      'occlusionAreas': <dynamic>[
+        <String, dynamic>{
+          'left': 848.0,
+          'top': 348.0,
+          'width': 44.0,
+          'height': 44.0,
+        },
+        <String, dynamic>{
+          'left': 100.0,
+          'top': 0.0,
+          'width': 120.0,
+          'height': 32.0,
+        },
+      ],
+    };
+
+    final event = PostureEvent.fromMap(map);
+    expect(event.hasSidePanel, isTrue);
+    expect(event.occlusionAreas.length, 2);
+
+    final inStrip = event.occlusionsIn(event.sidePanel!);
+    expect(inStrip.length, 1);
+    expect(inStrip.first.top, 348.0);
+
+    final safePad = event.sidePanelSafePadding(extraMargin: 8.0);
+    expect(safePad.top, 0.0);
+    // 430 - 348 + 8 = 90.0 bottom clearance to avoid rotated camera cutout
+    expect(safePad.bottom, 90.0);
+    expect(event.toMap()['occlusionAreas'], isA<List<dynamic>>());
+  });
+
+  test('onPostureChanged replays latestPosture to late subscribers', () async {
+    const eventChannelName = 'com.kauscoder.display_posture/events';
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    const codec = StandardMethodCodec();
+    messenger.setMockMethodCallHandler(
+      const MethodChannel(eventChannelName),
+      (MethodCall call) async {
+        if (call.method == 'listen') {
+          await messenger.handlePlatformMessage(
+            eventChannelName,
+            codec.encodeSuccessEnvelope(<String, dynamic>{
+              'foldState': 'NORMAL',
+              'isSeparating': false,
+              'orientation': 'LANDSCAPE',
+              'sidePanel': <String, dynamic>{
+                'left': 867.0,
+                'top': 0.0,
+                'width': 84.0,
+                'height': 669.0,
+              },
+              'occlusionAreas': <dynamic>[
+                <String, dynamic>{
+                  'left': 889.0,
+                  'top': 18.0,
+                  'width': 44.0,
+                  'height': 112.0,
+                },
+              ],
+            }),
+            (_) {},
+          );
+        }
+        return null;
+      },
+    );
+
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(
+        const MethodChannel(eventChannelName),
+        null,
+      );
+    });
+
+    final sub1 = platform.onPostureChanged.listen((_) {});
+    final first = await platform.onPostureChanged.first;
+    expect(first.sidePanel?.width, 84.0);
+    expect(first.occlusionAreas.length, 1);
+    expect(platform.latestPosture?.sidePanel?.left, 867.0);
+
+    // Late subscriber attaches after initial native emission and still receives cached event.
+    final replayed = await platform.onPostureChanged.first;
+    expect(replayed, equals(first));
+
+    await sub1.cancel();
+    expect(platform.latestPosture, isNull);
   });
 }

@@ -1,4 +1,4 @@
-import 'dart:ui' show Rect, Size;
+import 'package:flutter/painting.dart' show EdgeInsets, Rect, Size;
 
 /// Represents the folding state of a foldable or dual-screen device.
 enum FoldState {
@@ -216,6 +216,7 @@ class PostureEvent {
   final DeviceType deviceType;
   final PostureRect? hingeBounds;
   final List<PostureRect> displayAreas;
+  final List<PostureRect> occlusionAreas;
   final PostureRect? sidePanel;
   final PostureRect? combinedArea;
   final bool isTablet;
@@ -227,6 +228,7 @@ class PostureEvent {
     this.deviceType = DeviceType.other,
     this.hingeBounds,
     this.displayAreas = const [],
+    this.occlusionAreas = const [],
     this.sidePanel,
     this.combinedArea,
     this.isTablet = false,
@@ -251,6 +253,57 @@ class PostureEvent {
   bool get hasHinge =>
       hingeBounds != null &&
       (hingeBounds!.width > 0 || hingeBounds!.height > 0);
+
+  /// Whether a hardware or system side panel / dock band was detected.
+  bool get hasSidePanel =>
+      sidePanel != null && sidePanel!.width > 0 && sidePanel!.height > 0;
+
+  /// Returns all [occlusionAreas] overlapping [region].
+  List<PostureRect> occlusionsIn(PostureRect region) {
+    if (occlusionAreas.isEmpty || region.width <= 0 || region.height <= 0) {
+      return const [];
+    }
+    final target = region.toRect();
+    return occlusionAreas
+        .where(
+          (occ) =>
+              occ.width > 0 && occ.height > 0 && occ.toRect().overlaps(target),
+        )
+        .toList(growable: false);
+  }
+
+  /// Computes safe vertical insets inside [sidePanel] needed to stay clear of
+  /// overlapping hardware [occlusionAreas] (e.g. camera cutouts or status clusters).
+  ///
+  /// Returns [EdgeInsets.zero] when [sidePanel] is absent or has no occlusions.
+  EdgeInsets sidePanelSafePadding({double extraMargin = 8.0}) {
+    final panel = sidePanel;
+    if (panel == null || panel.width <= 0 || panel.height <= 0) {
+      return EdgeInsets.zero;
+    }
+    final overlapping = occlusionsIn(panel);
+    if (overlapping.isEmpty) {
+      return EdgeInsets.zero;
+    }
+
+    final midY = panel.top + panel.height * 0.5;
+    double topInset = 0.0;
+    double bottomInset = 0.0;
+
+    for (final occ in overlapping) {
+      if (occ.height >= panel.height * 0.8) continue;
+      final occCenterY = occ.top + occ.height * 0.5;
+      if (occCenterY < midY) {
+        final clearance = (occ.bottom - panel.top) + extraMargin;
+        if (clearance > topInset) topInset = clearance;
+      } else {
+        final clearance = (panel.bottom - occ.top) + extraMargin;
+        if (clearance > bottomInset) bottomInset = clearance;
+      }
+    }
+
+    return EdgeInsets.only(top: topInset, bottom: bottomInset);
+  }
 
   /// Whether the display is split into multiple panels (half-opened, separating, or tablet multi-panel).
   bool get isSplit =>
@@ -292,6 +345,15 @@ class PostureEvent {
       }
     }
 
+    final occlusionAreas = <PostureRect>[];
+    if (map['occlusionAreas'] is List) {
+      for (final item in (map['occlusionAreas'] as List)) {
+        if (item is Map) {
+          occlusionAreas.add(PostureRect.fromMap(item));
+        }
+      }
+    }
+
     PostureRect? sidePanel;
     if (map['sidePanel'] is Map) {
       sidePanel = PostureRect.fromMap(map['sidePanel'] as Map);
@@ -309,6 +371,7 @@ class PostureEvent {
       deviceType: DeviceType.fromString(map['deviceType'] as String?),
       hingeBounds: hinge,
       displayAreas: displayAreas,
+      occlusionAreas: occlusionAreas,
       sidePanel: sidePanel,
       combinedArea: combinedArea,
       isTablet: map['isTablet'] as bool? ?? false,
@@ -322,6 +385,7 @@ class PostureEvent {
     'deviceType': deviceType.name.toUpperCase(),
     if (hingeBounds != null) 'hingeBounds': hingeBounds!.toMap(),
     'displayAreas': displayAreas.map((a) => a.toMap()).toList(),
+    'occlusionAreas': occlusionAreas.map((a) => a.toMap()).toList(),
     if (sidePanel != null) 'sidePanel': sidePanel!.toMap(),
     if (combinedArea != null) 'combinedArea': combinedArea!.toMap(),
     'isTablet': isTablet,
@@ -329,7 +393,7 @@ class PostureEvent {
 
   @override
   String toString() =>
-      'PostureEvent(deviceType: ${deviceType.displayName}, foldState: $foldState, isSeparating: $isSeparating, orientation: $orientation, hingeBounds: $hingeBounds, displayAreas: ${displayAreas.length}, sidePanel: $sidePanel, combinedArea: $combinedArea)';
+      'PostureEvent(deviceType: ${deviceType.displayName}, foldState: $foldState, isSeparating: $isSeparating, orientation: $orientation, hingeBounds: $hingeBounds, displayAreas: ${displayAreas.length}, occlusionAreas: ${occlusionAreas.length}, sidePanel: $sidePanel, combinedArea: $combinedArea)';
 
   @override
   bool operator ==(Object other) =>
@@ -344,7 +408,8 @@ class PostureEvent {
           sidePanel == other.sidePanel &&
           combinedArea == other.combinedArea &&
           isTablet == other.isTablet &&
-          _listEquals(displayAreas, other.displayAreas);
+          _listEquals(displayAreas, other.displayAreas) &&
+          _listEquals(occlusionAreas, other.occlusionAreas);
 
   @override
   int get hashCode => Object.hash(
@@ -357,6 +422,7 @@ class PostureEvent {
     combinedArea,
     isTablet,
     Object.hashAll(displayAreas),
+    Object.hashAll(occlusionAreas),
   );
 
   static bool _listEquals<E>(List<E> a, List<E> b) {

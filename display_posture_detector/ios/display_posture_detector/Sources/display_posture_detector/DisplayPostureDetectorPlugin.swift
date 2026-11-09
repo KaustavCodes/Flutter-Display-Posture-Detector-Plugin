@@ -3,6 +3,37 @@ import UIKit
 
 private class PostureObserverView: UIView {
     var onLayoutOrFoldChanged: (() -> Void)?
+    private var verticalBarTraitRegistration: Any?
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        if superview != nil {
+            #if compiler(>=6.0)
+            if #available(iOS 27.1, *), verticalBarTraitRegistration == nil {
+                verticalBarTraitRegistration = registerForTraitChanges(
+                    UITraitCollection.systemTraitsAffectingVerticalBarEdge
+                ) { [weak self] (_: PostureObserverView, _: UITraitCollection) in
+                    self?.onLayoutOrFoldChanged?()
+                }
+            }
+            #endif
+        } else {
+            #if compiler(>=6.0)
+            if #available(iOS 17.0, *),
+               let registration = verticalBarTraitRegistration as? UITraitChangeRegistration {
+                unregisterForTraitChanges(registration)
+            }
+            #endif
+            verticalBarTraitRegistration = nil
+        }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            onLayoutOrFoldChanged?()
+        }
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -26,6 +57,7 @@ private struct PostureState: Equatable {
     let hingeRect: CGRect?
     let sidePanel: [String: Double]?
     let displayAreas: [[String: Double]]
+    let occlusionAreas: [[String: Double]]
 }
 
 public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
@@ -33,8 +65,13 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
     private weak var observerView: PostureObserverView?
     private var lastEmittedState: PostureState?
     private var emitScheduled = false
+    private var isObservingLifecycle = false
     private var hingeInteraction: Any?
     private var latestHingeStatusRaw: Int?
+
+    deinit {
+        stopObservingLifecycleNotifications()
+    }
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let methodChannel = FlutterMethodChannel(
@@ -79,12 +116,17 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         self.lastEmittedState = nil
+        startObservingLifecycleNotifications()
         attachObserverViewIfNeeded()
         emitCurrentPosture()
+        if observerView?.window == nil {
+            scheduleEmit()
+        }
         return nil
     }
 
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        stopObservingLifecycleNotifications()
         #if compiler(>=6.0)
         if #available(iOS 27.1, *), let interaction = hingeInteraction as? UIInteraction {
             getTargetView()?.removeInteraction(interaction)
@@ -100,8 +142,74 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
         return nil
     }
 
+    private func startObservingLifecycleNotifications() {
+        guard !isObservingLifecycle else { return }
+        isObservingLifecycle = true
+        let nc = NotificationCenter.default
+        nc.addObserver(
+            self,
+            selector: #selector(handleLifecycleNotification(_:)),
+            name: UIWindow.didBecomeKeyNotification,
+            object: nil
+        )
+        nc.addObserver(
+            self,
+            selector: #selector(handleLifecycleNotification(_:)),
+            name: UIWindow.didBecomeVisibleNotification,
+            object: nil
+        )
+        nc.addObserver(
+            self,
+            selector: #selector(handleLifecycleNotification(_:)),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        if #available(iOS 13.0, *) {
+            nc.addObserver(
+                self,
+                selector: #selector(handleLifecycleNotification(_:)),
+                name: UIScene.didActivateNotification,
+                object: nil
+            )
+            nc.addObserver(
+                self,
+                selector: #selector(handleLifecycleNotification(_:)),
+                name: UIScene.willEnterForegroundNotification,
+                object: nil
+            )
+        }
+    }
+
+    private func stopObservingLifecycleNotifications() {
+        guard isObservingLifecycle else { return }
+        isObservingLifecycle = false
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func handleLifecycleNotification(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.eventSink != nil else { return }
+            self.attachObserverViewIfNeeded()
+            self.scheduleEmit()
+        }
+    }
+
     private func attachObserverViewIfNeeded() {
-        guard observerView == nil, let rootView = getActiveRootView() else { return }
+        guard let rootView = getActiveRootView() else { return }
+
+        if let existing = observerView {
+            if existing.superview === rootView {
+                return
+            }
+            #if compiler(>=6.0)
+            if #available(iOS 27.1, *), let interaction = hingeInteraction as? UIInteraction {
+                existing.superview?.removeInteraction(interaction)
+                self.hingeInteraction = nil
+            }
+            #endif
+            existing.removeFromSuperview()
+            self.observerView = nil
+        }
 
         let obs = PostureObserverView(frame: rootView.bounds)
         obs.isUserInteractionEnabled = false
@@ -148,9 +256,14 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
 
     private func emitCurrentPosture() {
         guard let sink = eventSink else { return }
+        attachObserverViewIfNeeded()
         guard let targetView = getTargetView() else { return }
 
         let bounds = targetView.bounds
+        guard bounds.width > 0 && bounds.height > 0 else {
+            scheduleEmit()
+            return
+        }
         let safeFrame = targetView.safeAreaLayoutGuide.layoutFrame
         let orientation = bounds.width > bounds.height ? "LANDSCAPE" : "PORTRAIT"
 
@@ -238,18 +351,53 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
             displayAreas = [rectToMap(bounds)]
         }
 
-        // Side panel detection (e.g. right-side status/dock panel on iPhone Duo or notch inset)
+        // Side panel detection using UIKit verticalBarEdge (iOS 27.1+) with strict asymmetric fallback
+        // so symmetric notched/Dynamic Island regular iPhone landscape insets do not trigger a false sidePanel.
         var sidePanel: [String: Double]? = nil
         let rightInset = bounds.maxX - safeFrame.maxX
         let leftInset = safeFrame.minX - bounds.minX
-        if rightInset > 20 {
+        let isRTL = targetView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+
+        var resolvedBarEdge: UIRectEdge? = nil
+        #if compiler(>=6.0)
+        if #available(iOS 27.1, *) {
+            switch targetView.traitCollection.verticalBarEdge {
+            case .trailing:
+                resolvedBarEdge = isRTL ? .left : .right
+            case .leading:
+                resolvedBarEdge = isRTL ? .right : .left
+            case .unspecified:
+                resolvedBarEdge = nil
+            @unknown default:
+                resolvedBarEdge = nil
+            }
+        }
+        #endif
+
+        if let barEdge = resolvedBarEdge {
+            if barEdge == .right && rightInset > 20 {
+                sidePanel = [
+                    "left": Double(safeFrame.maxX),
+                    "top": 0.0,
+                    "width": Double(rightInset),
+                    "height": Double(bounds.height)
+                ]
+            } else if barEdge == .left && leftInset > 20 {
+                sidePanel = [
+                    "left": 0.0,
+                    "top": 0.0,
+                    "width": Double(leftInset),
+                    "height": Double(bounds.height)
+                ]
+            }
+        } else if rightInset > 20 && leftInset <= 20 {
             sidePanel = [
                 "left": Double(safeFrame.maxX),
                 "top": 0.0,
                 "width": Double(rightInset),
                 "height": Double(bounds.height)
             ]
-        } else if leftInset > 20 {
+        } else if leftInset > 20 && rightInset <= 20 {
             sidePanel = [
                 "left": 0.0,
                 "top": 0.0,
@@ -257,6 +405,26 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
                 "height": Double(bounds.height)
             ]
         }
+
+        // Occlusion reserved regions (camera cutouts, status clusters, etc.) on iOS 27.1+
+        var rawOcclusionRects: [CGRect] = []
+        #if compiler(>=6.0)
+        if #available(iOS 27.1, *) {
+            let activeOcclusions = targetView.reservedRegions(kind: .occlusion)
+            for region in activeOcclusions {
+                let frame = region.frame.intersection(bounds)
+                if !frame.isNull && !frame.isEmpty && frame.width > 0.5 && frame.height > 0.5 {
+                    rawOcclusionRects.append(frame)
+                }
+            }
+        }
+        #endif
+        let occlusionAreas = rawOcclusionRects.sorted { a, b in
+            if abs(a.origin.y - b.origin.y) > 0.5 { return a.origin.y < b.origin.y }
+            if abs(a.origin.x - b.origin.x) > 0.5 { return a.origin.x < b.origin.x }
+            if abs(a.size.width - b.size.width) > 0.5 { return a.size.width < b.size.width }
+            return a.size.height < b.size.height
+        }.map { rectToMap($0) }
 
         let deviceType = getDeviceType(for: targetView)
 
@@ -270,7 +438,8 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
             safeFrame: safeFrame,
             hingeRect: hingeRect,
             sidePanel: sidePanel,
-            displayAreas: displayAreas
+            displayAreas: displayAreas,
+            occlusionAreas: occlusionAreas
         )
 
         // Deduplication: Avoid redundant serialization and bridge traffic if state is unchanged
@@ -284,6 +453,7 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
             "isSeparating": isSeparating,
             "orientation": orientation,
             "displayAreas": displayAreas,
+            "occlusionAreas": occlusionAreas,
             "combinedArea": rectToMap(safeFrame),
             "isTablet": isTablet,
             "deviceType": deviceType
@@ -315,8 +485,13 @@ public class DisplayPostureDetectorPlugin: NSObject, FlutterPlugin, FlutterStrea
                     return keyWindow.rootViewController?.view ?? keyWindow
                 }
             }
+            for scene in scenes {
+                if let keyWindow = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first {
+                    return keyWindow.rootViewController?.view ?? keyWindow
+                }
+            }
         }
-        return UIApplication.shared.delegate?.window??.rootViewController?.view
+        return UIApplication.shared.delegate?.window??.rootViewController?.view ?? UIApplication.shared.delegate?.window ?? nil
     }
 
     private func getDeviceType(for view: UIView) -> String {

@@ -182,4 +182,28 @@ void main() {
     );
     expect(flat.isFlat, isTrue);
   });
+
+  test('PostureEvent equality includes occlusionAreas and Portrait top clearance works', () {
+    const baseSidePanel = PostureRect(left: 346, top: 0, width: 84, height: 932);
+    const portraitWithOcclusion = PostureEvent(
+      foldState: FoldState.normal,
+      isSeparating: false,
+      orientation: PostureOrientation.portrait,
+      sidePanel: baseSidePanel,
+      occlusionAreas: [
+        PostureRect(left: 366, top: 18, width: 44, height: 112),
+      ],
+    );
+    const portraitWithoutOcclusion = PostureEvent(
+      foldState: FoldState.normal,
+      isSeparating: false,
+      orientation: PostureOrientation.portrait,
+      sidePanel: baseSidePanel,
+    );
+
+    expect(portraitWithOcclusion == portraitWithoutOcclusion, isFalse);
+    final pad = portraitWithOcclusion.sidePanelSafePadding(extraMargin: 8.0);
+    expect(pad.top, 138.0);
+    expect(pad.bottom, 0.0);
+  });
 }

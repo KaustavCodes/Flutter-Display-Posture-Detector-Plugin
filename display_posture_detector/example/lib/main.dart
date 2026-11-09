@@ -191,7 +191,7 @@ class _PostureDashboardState extends State<PostureDashboard> {
     final paneA = _PaneContainer(
       title: 'PANE 1 • PRIMARY VIEWPORT',
       color: Colors.indigo,
-      child: _buildPaneAContent(),
+      child: _buildPaneAContent(isVertical),
     );
 
     final hinge = _HingeIndicator(
@@ -336,8 +336,10 @@ class _PostureDashboardState extends State<PostureDashboard> {
   // ===========================================================================
   // Content inside Pane 1
   // ===========================================================================
-  Widget _buildPaneAContent() {
+  Widget _buildPaneAContent(bool isVertical) {
     return SafeArea(
+      right: !isVertical,
+      bottom: isVertical,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(14.0),
         child: Column(
@@ -362,6 +364,8 @@ class _PostureDashboardState extends State<PostureDashboard> {
   // ===========================================================================
   Widget _buildPaneBContent(bool isVerticalHinge) {
     return SafeArea(
+      left: !isVerticalHinge,
+      top: isVerticalHinge,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(14.0),
         child: Column(
@@ -600,12 +604,16 @@ class _PostureDashboardState extends State<PostureDashboard> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      '${rect.width.toStringAsFixed(1)} × ${rect.height.toStringAsFixed(1)} dp  (L: ${rect.left.toStringAsFixed(0)}, T: ${rect.top.toStringAsFixed(0)})',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                        color: Colors.white70,
+                    Expanded(
+                      child: Text(
+                        '${rect.width.toStringAsFixed(1)} × ${rect.height.toStringAsFixed(1)} dp  (L: ${rect.left.toStringAsFixed(0)}, T: ${rect.top.toStringAsFixed(0)})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          color: Colors.white70,
+                        ),
                       ),
                     ),
                   ],
@@ -634,12 +642,16 @@ class _PostureDashboardState extends State<PostureDashboard> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  '${side.width.toStringAsFixed(1)} × ${side.height.toStringAsFixed(1)} dp  (L: ${side.left.toStringAsFixed(0)})',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'monospace',
-                    color: Colors.white70,
+                Expanded(
+                  child: Text(
+                    '${side.width.toStringAsFixed(1)} × ${side.height.toStringAsFixed(1)} dp  (L: ${side.left.toStringAsFixed(0)})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      color: Colors.white70,
+                    ),
                   ),
                 ),
               ],
@@ -666,12 +678,16 @@ class _PostureDashboardState extends State<PostureDashboard> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                '${wide.width.toStringAsFixed(1)} × ${wide.height.toStringAsFixed(1)} dp',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                  color: Colors.white70,
+              Expanded(
+                child: Text(
+                  '${wide.width.toStringAsFixed(1)} × ${wide.height.toStringAsFixed(1)} dp',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: Colors.white70,
+                  ),
                 ),
               ),
             ],
@@ -1201,13 +1217,17 @@ class _PaneContainer extends StatelessWidget {
               children: [
                 Icon(Icons.dashboard_outlined, size: 13, color: color.shade100),
                 const SizedBox(width: 6),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: color.shade100,
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: color.shade100,
+                    ),
                   ),
                 ),
               ],

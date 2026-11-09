@@ -34,6 +34,7 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
     private val configCallback = object : ComponentCallbacks {
         override fun onConfigurationChanged(newConfig: Configuration) {
             emitCurrentPosture()
+            activity?.window?.decorView?.post { emitCurrentPosture() }
         }
         override fun onLowMemory() {}
     }
@@ -94,6 +95,7 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
         windowScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
         emitCurrentPosture()
+        currentActivity.window?.decorView?.post { emitCurrentPosture() }
 
         windowScope?.launch {
             WindowInfoTracker.getOrCreate(currentActivity)
@@ -223,24 +225,45 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
             )
         }
 
-        // Side panel detection (system edge insets, notification/side dock panel)
+        // Side panel detection (asymmetric dock/cutout panel only; exclude symmetric landscape bars/cutouts)
         var sidePanel: Map<String, Double>? = null
         val rightInsetDp = insetRightPx / density
         val leftInsetDp = insetLeftPx / density
-        if (rightInsetDp > 20.0) {
+        if (rightInsetDp > 20.0 && leftInsetDp <= 20.0) {
             sidePanel = mapOf(
                 "left" to safeRightDp,
                 "top" to 0.0,
                 "width" to rightInsetDp,
                 "height" to (bounds.height() / density)
             )
-        } else if (leftInsetDp > 20.0) {
+        } else if (leftInsetDp > 20.0 && rightInsetDp <= 20.0) {
             sidePanel = mapOf(
                 "left" to 0.0,
                 "top" to 0.0,
                 "width" to leftInsetDp,
                 "height" to (bounds.height() / density)
             )
+        }
+
+        // Display cutout occlusion rects in logical dp
+        val occlusionAreas = mutableListOf<Map<String, Double>>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val cutout = currentActivity.window?.decorView?.rootWindowInsets?.displayCutout
+            if (cutout != null) {
+                val sortedCutouts = cutout.boundingRects
+                    .filter { it.width() > 0 && it.height() > 0 }
+                    .sortedWith(compareBy<Rect>({ it.top }, { it.left }, { it.width() }, { it.height() }))
+                for (rect in sortedCutouts) {
+                    occlusionAreas.add(
+                        mapOf(
+                            "left" to (rect.left / density),
+                            "top" to (rect.top / density),
+                            "width" to (rect.width() / density),
+                            "height" to (rect.height() / density)
+                        )
+                    )
+                }
+            }
         }
 
         val deviceType = if (isTablet) "ANDROID_TABLET" else "ANDROID_PHONE"
@@ -250,6 +273,7 @@ class DisplayPostureDetectorPlugin : FlutterPlugin, MethodChannel.MethodCallHand
             "isSeparating" to lastIsSeparating,
             "orientation" to orientation,
             "displayAreas" to displayAreas,
+            "occlusionAreas" to occlusionAreas,
             "combinedArea" to mapOf(
                 "left" to safeLeftDp,
                 "top" to safeTopDp,
