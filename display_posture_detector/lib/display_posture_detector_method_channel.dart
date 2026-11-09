@@ -47,14 +47,18 @@ class MethodChannelDisplayPostureDetector
       (dynamic rawEvent) {
         final event = PostureEvent.fromMap(rawEvent as Map);
         _latestPosture = event;
-        for (final controller in List<MultiStreamController<PostureEvent>>.of(_controllers)) {
+        for (final controller in List<MultiStreamController<PostureEvent>>.of(
+          _controllers,
+        )) {
           if (!controller.isClosed) {
             controller.add(event);
           }
         }
       },
       onError: (Object error, StackTrace stackTrace) {
-        for (final controller in List<MultiStreamController<PostureEvent>>.of(_controllers)) {
+        for (final controller in List<MultiStreamController<PostureEvent>>.of(
+          _controllers,
+        )) {
           if (!controller.isClosed) {
             controller.addError(error, stackTrace);
           }
@@ -65,28 +69,28 @@ class MethodChannelDisplayPostureDetector
 
   @override
   Stream<PostureEvent> get onPostureChanged {
-    _postureStream ??= Stream<PostureEvent>.multi(
-      (MultiStreamController<PostureEvent> controller) {
-        _controllers.add(controller);
-        final cached = _latestPosture;
-        if (cached != null) {
-          scheduleMicrotask(() {
-            if (!controller.isClosed && _latestPosture != null) {
-              controller.add(cached);
-            }
-          });
-        }
-        _ensureNativeSubscription();
-        controller.onCancel = () {
-          _controllers.remove(controller);
-          if (_controllers.isEmpty) {
-            _nativeSubscription?.cancel();
-            _nativeSubscription = null;
-            _latestPosture = null;
+    _postureStream ??= Stream<PostureEvent>.multi((
+      MultiStreamController<PostureEvent> controller,
+    ) {
+      _controllers.add(controller);
+      final cached = _latestPosture;
+      if (cached != null) {
+        scheduleMicrotask(() {
+          if (!controller.isClosed && _latestPosture != null) {
+            controller.add(cached);
           }
-        };
-      },
-    );
+        });
+      }
+      _ensureNativeSubscription();
+      controller.onCancel = () {
+        _controllers.remove(controller);
+        if (_controllers.isEmpty) {
+          _nativeSubscription?.cancel();
+          _nativeSubscription = null;
+          _latestPosture = null;
+        }
+      };
+    });
     return _postureStream!;
   }
 }

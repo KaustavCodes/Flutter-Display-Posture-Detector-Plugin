@@ -1,3 +1,14 @@
+## 0.0.5
+
+* Added missing `0.0.4` release notes to `CHANGELOG.md` for pub.dev score compliance and formatted Dart sources.
+* Synchronized `0.0.5` version metadata across `pubspec.yaml`, iOS podspec, and `README.md`.
+
+## 0.0.4
+
+* **Hardware Occlusion & Side-Panel Clearances**: Added `occlusionAreas`, `hasSidePanel`, `occlusionsIn(...)`, and `sidePanelSafePadding(...)` to `PostureEvent` with native iOS and Android occlusion reporting.
+* **Cached Broadcast Posture Stream**: Updated `MethodChannelDisplayPostureDetector` with a shared `Stream.multi` native subscription and `latestPosture` cache so new listeners and `AdaptivePostureBuilder` instances receive the latest posture state immediately.
+* **Dual-Pane Layout Alignment & Tests**: Improved side-panel detection logic and expanded unit and method-channel test coverage.
+
 ## 0.0.3
 
 * **iOS Hinge Interaction Integration**: Connected native `UIHingeInteraction` and `UIHinge.Status` on iOS to accurately detect semi-folded / half-opened postures in vertical Book mode in addition to Tabletop mode.

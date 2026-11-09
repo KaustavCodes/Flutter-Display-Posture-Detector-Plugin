@@ -1,6 +1,6 @@
 name: display_posture_detector
 description: A Flutter plugin to detect display postures, hardware hinge bounds, orientation, screen metrics, and multi-display regions on foldables and tablets.
-version: 0.0.4
+version: 0.0.5
 homepage: https://kauscoder.com
 repository: https://github.com/KaustavCodes/Flutter-Display-Posture-Detector-Plugin
 issue_tracker: https://github.com/KaustavCodes/Flutter-Display-Posture-Detector-Plugin/issues

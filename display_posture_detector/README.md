@@ -54,7 +54,7 @@ Add `display_posture_detector` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  display_posture_detector: ^0.0.3
+  display_posture_detector: ^0.0.5
 ```
 
 ### 2. Optional Startup Initialization (Custom Breakpoints)
