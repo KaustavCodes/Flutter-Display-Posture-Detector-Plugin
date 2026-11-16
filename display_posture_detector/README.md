@@ -54,7 +54,7 @@ Add `display_posture_detector` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  display_posture_detector: ^0.0.5
+  display_posture_detector: ^0.0.6
 ```
 
 ### 2. Optional Startup Initialization (Custom Breakpoints)
@@ -62,7 +62,7 @@ dependencies:
 Initialize global breakpoints once in `main()` before launching `runApp()`:
 
 ```dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:display_posture_detector/display_posture_detector.dart';
 
 void main() {

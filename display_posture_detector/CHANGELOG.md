@@ -1,3 +1,9 @@
+## 0.0.6
+
+* Migrated UI imports from `package:flutter/material.dart` to `package:material_ui/material_ui.dart` (`material_ui: ^1.11.0`).
+* Updated `AdaptivePostureBuilder` and example application to integrate with `material_ui`.
+* Synchronized `0.0.6` version metadata across `pubspec.yaml`, iOS podspec, and `README.md`.
+
 ## 0.0.5
 
 * Added missing `0.0.4` release notes to `CHANGELOG.md` for pub.dev score compliance and formatted Dart sources.

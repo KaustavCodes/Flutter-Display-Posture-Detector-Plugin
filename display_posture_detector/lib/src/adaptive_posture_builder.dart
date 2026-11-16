@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../display_posture_detector.dart';
 import '../display_posture_detector_method_channel.dart';
